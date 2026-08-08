@@ -145,8 +145,21 @@
                 </div>
             </div>
 
-            <h2>Execution Tree</h2>
-            <div class="card" id="run-tree">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2rem;">
+                <h2>Event Log</h2>
+                <div>
+                    <button onclick="toggleView('tree')" class="btn" id="btn-tree" style="background: var(--primary);">Tree View</button>
+                    <button onclick="toggleView('chat')" class="btn" id="btn-chat" style="background: #4B5563;">Chat View</button>
+                </div>
+            </div>
+            
+            <!-- Tree View -->
+            <div class="card" id="run-tree" style="margin-top: 1rem;">
+                <!-- populated by js -->
+            </div>
+
+            <!-- Chat View -->
+            <div class="card" id="run-chat" style="margin-top: 1rem; display: none; background: #f3f4f6;">
                 <!-- populated by js -->
             </div>
         </div>
@@ -290,6 +303,70 @@
                     }
                 }
             });
+
+            // Render Chat View
+            const chatContainer = document.getElementById('run-chat');
+            chatContainer.innerHTML = '';
+            
+            data.events.forEach(evt => {
+                const isUser = evt.type === 'user_message' || (evt.metadata && evt.metadata.role === 'user');
+                const isAgent = evt.type === 'agent_message' || evt.type === 'tool.completed' || (evt.metadata && evt.metadata.role === 'agent');
+                
+                if (isUser || isAgent) {
+                    const bubble = document.createElement('div');
+                    bubble.style.display = 'flex';
+                    bubble.style.flexDirection = 'column';
+                    bubble.style.marginBottom = '1rem';
+                    bubble.style.alignItems = isUser ? 'flex-end' : 'flex-start';
+
+                    const sender = document.createElement('div');
+                    sender.textContent = isUser ? 'User' : 'Agent';
+                    sender.style.fontSize = '0.8rem';
+                    sender.style.color = '#6b7280';
+                    sender.style.marginBottom = '4px';
+                    
+                    const msg = document.createElement('div');
+                    msg.style.maxWidth = '75%';
+                    msg.style.padding = '10px 14px';
+                    msg.style.borderRadius = '12px';
+                    msg.style.backgroundColor = isUser ? '#3b82f6' : '#ffffff';
+                    msg.style.color = isUser ? '#ffffff' : '#1f2937';
+                    msg.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
+                    
+                    let contentText = '';
+                    if (evt.metadata && evt.metadata.input) contentText += JSON.stringify(evt.metadata.input);
+                    if (evt.metadata && evt.metadata.output) contentText += JSON.stringify(evt.metadata.output);
+                    if (evt.metadata && evt.metadata.message) contentText += evt.metadata.message;
+                    
+                    msg.textContent = contentText || "No content";
+                    
+                    bubble.appendChild(sender);
+                    bubble.appendChild(msg);
+                    chatContainer.appendChild(bubble);
+                }
+            });
+            if (chatContainer.innerHTML === '') {
+                chatContainer.innerHTML = '<p style="text-align: center; color: #6b7280;">No chat messages found in this run.</p>';
+            }
+        }
+
+        function toggleView(view) {
+            const treeBtn = document.getElementById('btn-tree');
+            const chatBtn = document.getElementById('btn-chat');
+            const treeContainer = document.getElementById('run-tree');
+            const chatContainer = document.getElementById('run-chat');
+
+            if (view === 'tree') {
+                treeBtn.style.background = 'var(--primary)';
+                chatBtn.style.background = '#4B5563';
+                treeContainer.style.display = 'block';
+                chatContainer.style.display = 'none';
+            } else {
+                treeBtn.style.background = '#4B5563';
+                chatBtn.style.background = 'var(--primary)';
+                treeContainer.style.display = 'none';
+                chatContainer.style.display = 'block';
+            }
         }
 
         function showList() {

@@ -134,6 +134,27 @@ def audit(run_id: str, format: str = "md", output: str = None):
             return
     generate_audit_report(run_id, format, output)
 
+@app.command(
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
+)
+def mcp_proxy(ctx: typer.Context):
+    """
+    Chạy MCP Proxy cho Claude Desktop.
+    Sử dụng: agenttrace mcp-proxy -- python server.py
+    """
+    if not ctx.args:
+        console.print("[red]Lỗi: Cần cung cấp lệnh chạy MCP Server. Ví dụ: agenttrace mcp-proxy -- npx -y @modelcontextprotocol/server-everything[/red]")
+        return
+        
+    # Loại bỏ dấu '--' nếu có
+    command = ctx.args
+    if command[0] == "--":
+        command = command[1:]
+        
+    from .adapters.mcp_proxy import MCPProxy
+    proxy = MCPProxy(command)
+    proxy.start()
+
 @app.command()
 def serve(host: str = "127.0.0.1", port: int = 8000):
     console.print(f"Starting AgentTrace Dashboard on http://{host}:{port}")

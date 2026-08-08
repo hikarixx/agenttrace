@@ -100,6 +100,46 @@ traced_user = adapter.attach(user_proxy)
 traced_user.initiate_chat(assistant, message="Giải phương trình bậc 2")
 ```
 
+## 4. Claude Desktop IDE (MCP Proxy)
+
+Claude Desktop hỗ trợ giao tiếp với thế giới bên ngoài thông qua chuẩn **Model Context Protocol (MCP)** qua STDIO. AgentTrace cung cấp một Proxy để đánh chặn và ghi log toàn bộ hoạt động của Claude mà không cần can thiệp mã nguồn.
+
+### Cấu hình `claude_desktop_config.json`
+
+Thường nằm ở:
+- Mac: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Giả sử bạn đang có một MCP Server gốc như sau:
+```json
+{
+  "mcpServers": {
+    "sqlite": {
+      "command": "python",
+      "args": ["-m", "mcp_sqlite", "--db-path", "test.db"]
+    }
+  }
+}
+```
+
+Để nhúng AgentTrace vào, bạn chỉ cần thay đổi **command** thành `agenttrace` và thêm `mcp-proxy --` vào trước lệnh cũ:
+
+```diff
+  {
+    "mcpServers": {
+      "sqlite": {
+-       "command": "python",
+-       "args": ["-m", "mcp_sqlite", "--db-path", "test.db"]
++       "command": "agenttrace",
++       "args": ["mcp-proxy", "--", "python", "-m", "mcp_sqlite", "--db-path", "test.db"]
+      }
+    }
+  }
+```
+
+> [!NOTE]
+> Ngay sau khi bạn khởi động lại Claude Desktop, mọi hành động (đọc file, query database) mà Claude thực hiện qua MCP Server này đều sẽ bị AgentTrace ghi lại và hiển thị trên Dashboard!
+
 ---
 
 [Tiếp theo: Chương 5 - Tích hợp Antigravity IDE →](05-ide-integration.md)
