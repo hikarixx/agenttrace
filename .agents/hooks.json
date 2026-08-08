@@ -1,0 +1,26 @@
+{
+  "agenttrace": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py scripts/agenttrace_hook.py pre_tool"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "py scripts/agenttrace_hook.py post_tool"
+          }
+        ]
+      }
+    ]
+  }
+}

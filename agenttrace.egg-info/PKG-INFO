@@ -1,0 +1,70 @@
+Metadata-Version: 2.4
+Name: agenttrace
+Version: 0.1.0
+Summary: A Python framework to record, store, query, and visualize AI Agent execution.
+License: Apache-2.0
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: pydantic>=2.0
+Requires-Dist: typer>=0.9.0
+Requires-Dist: fastapi>=0.100.0
+Requires-Dist: uvicorn>=0.23.0
+Requires-Dist: sqlalchemy>=2.0.0
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+
+# AgentTrace
+
+AgentTrace is a Python framework to record, store, query, and visualize the execution process of AI Agents.
+
+## Problem
+
+Building AI Agents is hard. Debugging them is even harder. Agents can fail in unpredictable ways, loop endlessly, or use wrong tools. AgentTrace helps you understand exactly what your agent did by recording every observable event.
+
+**Note:** AgentTrace does not read the internal chain-of-thought of the model. It records observable execution events (tool calls, file reads, commands, etc.).
+
+## Installation
+
+```bash
+pip install agenttrace
+```
+
+## Quick Start
+
+```python
+from agenttrace import AgentTrace
+
+trace = AgentTrace()
+
+@trace.tool("read_file")
+def read_file(path: str):
+    return open(path).read()
+
+with trace.run(agent="coding-agent", task="Fix authentication"):
+    content = read_file("auth.py")
+    # your agent logic...
+```
+
+## CLI Usage
+
+```bash
+agenttrace runs
+agenttrace show <RUN_ID>
+agenttrace events <RUN_ID>
+agenttrace tree <RUN_ID>
+agenttrace serve
+```
+
+## Dashboard
+
+Run `agenttrace serve` to start the local dashboard.
+
+## Security
+
+AgentTrace includes a built-in `SecretRedactor` that automatically masks API keys, tokens, JWTs, and passwords from tool inputs and outputs.
+
+## License
+
+Apache-2.0
