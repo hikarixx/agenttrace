@@ -1,26 +1,25 @@
 # AgentTrace
 
-[![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://python.org)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-
 **AgentTrace** là một framework mạnh mẽ giúp ghi log, theo dõi (trace) và giám sát hoạt động của các hệ thống AI Agent (LLMs). Nó hỗ trợ ghi lại quá trình Agent sử dụng công cụ (Tool Use), quản lý sự kiện theo dạng cây (Execution Tree) và bảo mật dữ liệu nhạy cảm.
 
 ## Tính năng chính
 
-- Theo dõi tự động với Decorator.
-- Hỗ trợ đa thư viện: **OpenAI**, **LangChain**, **LlamaIndex**, **MCP**.
-- Hỗ trợ IDE: **Antigravity**.
-- Storage cục bộ (Local SQLite) nhanh nhẹn.
-- Giao diện Web Dashboard trực quan và CLI tiện lợi.
+* Theo dõi tự động với Decorator.
+* Hỗ trợ đa thư viện: **OpenAI**, **LangChain**, **LlamaIndex**, **MCP**.
+* Hỗ trợ IDE: **Antigravity**.
+* Storage cục bộ (Local SQLite) nhanh nhẹn.
+* Giao diện Web Dashboard trực quan và CLI tiện lợi.
 
 ## Bắt đầu nhanh (Quick Start)
 
 1. Cài đặt package:
+
 ```bash
 pip install -e .
 ```
 
 2. Khởi động Web Dashboard (cổng mặc định 8000):
+
 ```bash
 agenttrace serve --port 8000
 ```
@@ -40,4 +39,5 @@ Vui lòng tham khảo bộ tài liệu chi tiết trong thư mục `docs/`:
 7. [Bảo mật và Che giấu dữ liệu](docs/07-security-and-redaction.md)
 
 ---
-*Dự án AgentTrace - Được thiết kế cho hệ sinh thái Agentic Coding.*
+
+# Dự án AgentTrace - Được thiết kế cho hệ sinh thái Agentic Coding.
