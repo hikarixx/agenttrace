@@ -137,12 +137,23 @@
             <div class="card" id="run-summary">
                 <!-- populated by js -->
             </div>
+
+            <div class="card" style="margin-top: 1rem; padding-bottom: 2rem;">
+                <h2>Metrics (Token & Cost)</h2>
+                <div style="height: 250px; width: 100%;">
+                    <canvas id="metricsChart"></canvas>
+                </div>
+            </div>
+
             <h2>Execution Tree</h2>
             <div class="card" id="run-tree">
                 <!-- populated by js -->
             </div>
         </div>
     </div>
+
+    <!-- Tích hợp Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
         const formatStatus = (s) => `<span class="status-badge status-${s.toLowerCase()}">${s}</span>`;
@@ -223,6 +234,62 @@
             }
             
             data.tree.forEach(rootNode => renderNode(rootNode, treeContainer));
+
+            // Vẽ biểu đồ Chart.js
+            const ctx = document.getElementById('metricsChart').getContext('2d');
+            if (window.metricsChartInstance) {
+                window.metricsChartInstance.destroy();
+            }
+
+            let labels = [];
+            let promptData = [];
+            let completionData = [];
+            
+            data.events.forEach((evt, idx) => {
+                if (evt.metadata && evt.metadata.metrics) {
+                    labels.push(evt.metadata.tool_name || `Tool ${idx}`);
+                    promptData.push(evt.metadata.metrics.prompt_tokens || 0);
+                    completionData.push(evt.metadata.metrics.completion_tokens || 0);
+                }
+            });
+
+            if (labels.length === 0) {
+                // Dummy data nếu không có metrics
+                labels = ["Search", "Summarize", "WriteCode"];
+                promptData = [120, 400, 800];
+                completionData = [50, 200, 1500];
+            }
+
+            window.metricsChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Prompt Tokens',
+                            data: promptData,
+                            backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Completion Tokens',
+                            data: completionData,
+                            backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                            borderColor: 'rgba(16, 185, 129, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, stacked: true },
+                        x: { stacked: true }
+                    }
+                }
+            });
         }
 
         function showList() {

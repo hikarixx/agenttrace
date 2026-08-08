@@ -34,6 +34,18 @@ def main():
     }
 
     if event_phase == "pre_tool":
+        # CHÈN POLICY ENGINE TẠI ĐÂY
+        try:
+            sys.path.insert(0, ".") # Ensure we can import agenttrace
+            from agenttrace.policy import PolicyEngine
+            engine = PolicyEngine()
+            is_allowed, reason = engine.check_tool(tool_name, tool_args)
+            if not is_allowed:
+                print(json.dumps({"decision": "deny", "reason": reason}))
+                return
+        except Exception as e:
+            pass # Nếu lỗi import, cho qua
+
         event_payload["type"] = "tool.started"
         event_payload["status"] = "started"
         event_payload["metadata"]["input"] = tool_args

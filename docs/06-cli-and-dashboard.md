@@ -1,38 +1,49 @@
-# 6. CLI và Web Dashboard
+# Chương 6: Cẩm nang CLI & Web Dashboard
 
-AgentTrace đi kèm với một CLI (Giao diện dòng lệnh) mạnh mẽ và một Dashboard Web trực quan.
-
-## AgentTrace CLI
-
-Bạn có thể chạy công cụ CLI thông qua lệnh `agenttrace`.
-
-### Khởi chạy Server
-Để khởi động REST API và Web Dashboard:
-```bash
-agenttrace serve --port 8000
-```
-Sau đó truy cập `http://127.0.0.1:8000` trên trình duyệt.
-
-### Xem danh sách Runs qua Terminal
-```bash
-agenttrace runs --limit 10
-```
-*(Hiển thị bảng danh sách các phiên chạy dưới dạng Text ASCII).*
-
-### Xuất dữ liệu Run ra JSON
-```bash
-agenttrace export <RUN_ID> --output log.json
-```
-
-## AgentTrace Web Dashboard
-
-Dashboard Web cung cấp 2 chế độ xem:
-1. **Recent Runs**: Bảng thống kê các lần Agent hoạt động, kèm theo thời gian, ID và trạng thái (Started, Completed, Failed).
-2. **Execution Tree**: Khi click vào một Run ID, bạn sẽ xem được cấu trúc phân cấp (Cây) của các Event/Tool. Bạn có thể click vào từng dòng sự kiện để xem chi tiết JSON metadata (Input/Output).
-
-> [!TIP]
-> Nếu dữ liệu mới không xuất hiện trên Web Dashboard sau khi thao tác với IDE, hãy thử Hard Refresh trình duyệt (`Ctrl + F5`) để xóa bộ nhớ đệm (Cache).
+AgentTrace mang đến trải nghiệm UI/UX toàn diện: Cho cả những Dev thích "gõ cộc cộc" trên Terminal (CLI) và các Manager thích biểu đồ xanh đỏ (Dashboard).
 
 ---
 
-[Tiếp theo: Security & Redaction →](07-security-and-redaction.md)
+## 1. Dòng Lệnh CLI (Command Line Interface)
+
+Tất cả bắt đầu bằng lệnh `agenttrace`. Được viết trên nền tảng `Typer` kết hợp `Rich`, CLI của AgentTrace render các bảng màu và ASCII Art tuyệt đẹp.
+
+### Bảng Tra Cứu Các Lệnh Phổ Biến
+
+| Lệnh (Command) | Tham số (Args) | Công dụng (Description) |
+| :--- | :--- | :--- |
+| `agenttrace serve` | `--port 8000` | Khởi động Web Dashboard và API Server. |
+| `agenttrace runs` | `--limit 50` | In ra bảng Terminal danh sách 50 phiên làm việc gần nhất (có tô màu Status). |
+| `agenttrace show` | `<run_id>` | Hiển thị chi tiết thông tin Metadata của 1 Run. |
+| `agenttrace tree` | `<run_id>` | In ra cây sự kiện dạng Text (ASCII Tree) giống lệnh `tree` của Linux. |
+| `agenttrace export`| `<run_id> --output file.json` | Dump toàn bộ dữ liệu Run ra JSON để chia sẻ cho team debug. |
+
+> [!TIP]
+> **Tính năng Báo cáo Kiểm toán (Audit)**
+> Mới được bổ sung gần đây! Bạn gõ `agenttrace audit <run_id>` để máy tự động đọc toàn bộ log, đếm số Token/Chi phí, soi lỗi bảo mật, và xuất ra một file `Markdown` báo cáo chuyên nghiệp.
+
+---
+
+## 2. Web Dashboard (Giao diện đồ họa)
+
+Giao diện Web của AgentTrace là một Single Page Application (SPA) siêu nhẹ (Vanilla JS/HTML), không cần cài đặt Node.js hay npm.
+
+### Giao Diện Hoạt Động Như Thế Nào?
+
+Khi bạn truy cập `http://localhost:8000`, Dashboard cung cấp 3 lớp hiển thị:
+
+1. **Bảng Danh Sách (Recent Runs)**
+   - Cột ID thông minh: Chỉ hiển thị 8 ký tự đầu, nhưng nếu bạn rê chuột (Hover) hoặc ID chứa cụm `step`, nó sẽ mở rộng tự động qua CSS Tooltip.
+   - Trạng thái `completed` (Xanh), `failed` (Đỏ), `started` (Vàng).
+
+2. **Biểu Đồ Data Visualization (Mới cập nhật!)**
+   - AgentTrace đã tích hợp **Chart.js** vào HTML.
+   - Khi bạn bấm vào một Run, Dashboard sẽ tự động duyệt qua toàn bộ Event Metadata. Nếu nó thấy `prompt_tokens` và `completion_tokens`, nó lập tức vẽ lên màn hình một biểu đồ **Stacked Bar Chart**. Giúp sếp nhìn lướt qua là biết Tool nào đang ngốn tiền nhất!
+
+3. **Cây Sự Kiện (Execution Tree)**
+   - Hiển thị theo cấp bậc (cha - con).
+   - Click vào từng Node để bung (Collapse/Expand) xem khối JSON nguyên gốc chứa Input/Output.
+
+---
+
+[Tiếp theo: Chương 7 - Security & Redaction →](07-security-and-redaction.md)

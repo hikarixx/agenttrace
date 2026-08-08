@@ -1,34 +1,70 @@
-# 7. Bảo mật và Che giấu dữ liệu (Security & Redaction)
+# Chương 7: Bảo Mật, Policy Engine & Data Redaction
 
-Khi các AI Agent giao tiếp với các API bên ngoài, chúng thường xuyên phải trao đổi thông tin nhạy cảm như `OPENAI_API_KEY`, mật khẩu Database, hoặc Secret Tokens. 
+Hệ thống AgentTrace không đơn thuần chỉ ghi lại cái Agent làm. Nó đóng vai trò làm **Người bảo vệ (Guardian)** cho toàn bộ hệ thống của bạn trước những rủi ro bảo mật tàn khốc nhất.
 
-Việc lưu các thông tin này vào cơ sở dữ liệu `agenttrace.db` tiềm ẩn nguy cơ lộ lọt dữ liệu. Do đó, AgentTrace tích hợp sẵn hệ thống **Security Redactor**.
+---
 
-## Cách Hoạt Động
+## 1. Policy Engine (Lá Chắn Thời Gian Thực)
 
-Lớp `SecurityRedactor` nằm ở phần lõi (`agenttrace.security`) thực hiện việc chặn (intercept) mọi dữ liệu trước khi chúng được đưa xuống Storage Layer.
-Nó sử dụng các biểu thức chính quy (Regex) kết hợp với thuật toán dò tìm để tự động phát hiện:
-- API Keys (OpenAI, Anthropic, AWS, v.v...)
-- Bearer Tokens
-- Mật khẩu dạng chuỗi
-- Email và các PII (Personal Identifiable Information) nếu được cấu hình.
+LLM có thể sinh ra "Ảo giác" (Hallucination). Chuyện gì xảy ra nếu bạn cấp quyền cho nó chạy Terminal và nó bỗng dưng gõ `rm -rf /`?
 
-Mọi chuỗi bị phát hiện sẽ được ghi đè bằng `[REDACTED]`.
+### Cách Policy Engine Hoạt Động
+Policy Engine là một mô-đun chạy ở tầng **Pre-Tool** (Trước khi Tool chạy). Nó kiểm duyệt (Inspect) `tool_args`.
 
-## Cách Cấu Hình
-
-Security Redactor được kích hoạt tự động theo mặc định. Tuy nhiên, bạn có thể tự thêm các mẫu (patterns) nhạy cảm riêng rẽ của ứng dụng:
-
-```python
-from agenttrace.security import SecurityRedactor
-from agenttrace.core import Tracer
-
-redactor = SecurityRedactor()
-redactor.add_pattern(r"MY_COMPANY_SECRET_[a-zA-Z0-9]+")
-
-# Truyền redactor vào Tracer
-tracer = Tracer(db_path="secure_logs.db", redactor=redactor)
+```mermaid
+graph LR
+    A[Agent Input] --> B(PolicyEngine)
+    B -->|Check Rules| C{Is Safe?}
+    C -- Yes --> D[Execute Tool]
+    C -- No --> E((DENY & BLOCK))
+    
+    style E fill:#f00,stroke:#333,stroke-width:4px,color:#fff
 ```
 
-> [!IMPORTANT]
-> AgentTrace tự động lọc trên cả bộ giá trị của JSON Input và Output, cho nên dù Tool trả về lỗi có chứa mã bảo mật, hệ thống vẫn đảm bảo an toàn.
+### Các Bộ Luật (Rules) Có Sẵn
+
+1. **`DangerousCommandRule`**:
+   - Dùng Regex tìm các mẫu phá hoại trong Command Line.
+   - Ví dụ cấm: `rm -rf`, `mkfs`, `reboot`, `shutdown`, `drop table`.
+2. **`RestrictDomainRule`**:
+   - Chỉ cho phép LLM gọi API (fetch) tới các Domain đã được cấp phép (Whitelist).
+   - Ngăn chặn Agent vô tình tải mã độc từ một máy chủ vô danh.
+
+---
+
+## 2. Security Redactor (Che Dấu Dữ Liệu Nhạy Cảm)
+
+Khi Agent gọi OpenAI, trong Header của Request luôn có một chuỗi `Bearer sk-xxxxxxxxxx`. Nếu bạn lưu nó vào DB `agenttrace.db`, và người khác (hoặc Hacker) lấy được DB đó, công ty bạn sẽ thiệt hại nặng nề.
+
+> [!CAUTION]
+> **Zero Trust Logging**
+> AgentTrace mặc định coi MỌI luồng dữ liệu (Input, Output, Error Traceback) đều có thể chứa thông tin mật.
+
+### Thuật toán Lọc (Redaction Algorithm)
+
+`SecurityRedactor` nằm ở phần lõi (`agenttrace.security`). Thuật toán của nó:
+1. Nạp sẵn 50+ Regex Pattern đại diện cho API Key của OpenAI, AWS, Anthropic, GCP, Stripe...
+2. Chặn toàn bộ `Event.metadata` trước khi Serialize thành chuỗi JSON để đưa xuống Storage.
+3. Duyệt đệ quy (Recursive Traverse) qua toàn bộ cây Dictionary.
+4. Phát hiện chuỗi khớp -> Ghi đè bằng `[REDACTED]`.
+
+**Ví dụ Code (Trước / Sau):**
+
+```diff
+  # Before Redaction (Bị Lộ)
+  {
+-     "authorization": "Bearer sk-proj-ABCD12345XYZ",
+      "user_email": "ceo@company.com"
+  }
+
+  # After Redaction (An toàn)
+  {
++     "authorization": "[REDACTED]",
+      "user_email": "ceo@company.com"
+  }
+```
+
+Bạn có thể tự định nghĩa thêm Regex độc quyền của công ty mình bằng cách gọi `redactor.add_pattern(r"MY_COMPANY_SECRET_[a-zA-Z0-9]+")`.
+
+---
+*Cảm ơn bạn đã đọc hết cẩm nang AgentTrace. Chúc bạn xây dựng được những Agent an toàn và siêu việt nhất!*

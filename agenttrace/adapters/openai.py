@@ -11,6 +11,22 @@ class OpenAIChatAdapter(AgentAdapter):
                 try:
                     response = original_create(*args, **kwargs)
                     resp_dict = response.model_dump() if hasattr(response, 'model_dump') else str(response)
+                    
+                    # Trích xuất Token Usage & tính Cost
+                    metrics = {}
+                    if hasattr(response, 'usage') and response.usage:
+                        prompt_tokens = getattr(response.usage, 'prompt_tokens', 0)
+                        completion_tokens = getattr(response.usage, 'completion_tokens', 0)
+                        # Giả định giá GPT-4o
+                        cost = (prompt_tokens * 0.005 / 1000) + (completion_tokens * 0.015 / 1000)
+                        metrics = {
+                            "prompt_tokens": prompt_tokens,
+                            "completion_tokens": completion_tokens,
+                            "total_tokens": getattr(response.usage, 'total_tokens', 0),
+                            "estimated_cost_usd": round(cost, 5)
+                        }
+                        resp_dict["metrics"] = metrics
+
                     call.complete(resp_dict)
                     if hasattr(response, 'choices') and response.choices:
                         message = response.choices[0].message

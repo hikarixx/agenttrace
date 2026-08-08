@@ -118,6 +118,22 @@ def delete(run_id: str):
             return
     storage.delete_run(run_id)
     console.print(f"Run {run_id} deleted.")
+
+@app.command()
+def audit(run_id: str, format: str = "md", output: str = None):
+    """Trích xuất báo cáo kiểm toán (Audit Report) cho một Run"""
+    from .audit import generate_audit_report
+    run = storage.get_run(run_id)
+    if not run:
+        runs = storage.list_runs()
+        matches = [r for r in runs if r.id.startswith(run_id)]
+        if len(matches) == 1:
+            run_id = matches[0].id
+        else:
+            console.print(f"[red]Run {run_id} not found[/red]")
+            return
+    generate_audit_report(run_id, format, output)
+
 @app.command()
 def serve(host: str = "127.0.0.1", port: int = 8000):
     console.print(f"Starting AgentTrace Dashboard on http://{host}:{port}")
