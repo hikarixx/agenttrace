@@ -1,49 +1,48 @@
-# Chương 6: Cẩm nang CLI & Web Dashboard
+# Chapter 6: CLI Command Reference & Dashboard Analytics
 
-AgentTrace mang đến trải nghiệm UI/UX toàn diện: Cho cả những Dev thích "gõ cộc cộc" trên Terminal (CLI) và các Manager thích biểu đồ xanh đỏ (Dashboard).
+AgentTrace is engineered to deliver a flawless UI/UX experience across both spectrums of the engineering divide: For the hardcore terminal hackers, we provide an exquisite CLI/TUI. For product managers and executives, we deliver a stunning, Chart.js-powered Web Dashboard.
 
 ---
 
-## 1. Dòng Lệnh CLI (Command Line Interface)
+## 1. The Command Line Interface (CLI)
 
-Tất cả bắt đầu bằng lệnh `agenttrace`. Được viết trên nền tảng `Typer` kết hợp `Rich`, CLI của AgentTrace render các bảng màu và ASCII Art tuyệt đẹp.
+The AgentTrace CLI is constructed atop `Typer` and `Rich`. It abandons the dull, monochrome terminal outputs of the past, replacing them with vibrant color palettes, ascii trees, and pristine data tables.
 
-### Bảng Tra Cứu Các Lệnh Phổ Biến
+### Quick Reference Command Matrix
 
-| Lệnh (Command) | Tham số (Args) | Công dụng (Description) |
+| Command | Arguments | Description |
 | :--- | :--- | :--- |
-| `agenttrace serve` | `--port 8000` | Khởi động Web Dashboard và API Server. |
-| `agenttrace runs` | `--limit 50` | In ra bảng Terminal danh sách 50 phiên làm việc gần nhất (có tô màu Status). |
-| `agenttrace show` | `<run_id>` | Hiển thị chi tiết thông tin Metadata của 1 Run. |
-| `agenttrace tree` | `<run_id>` | In ra cây sự kiện dạng Text (ASCII Tree) giống lệnh `tree` của Linux. |
-| `agenttrace export`| `<run_id> --output file.json` | Dump toàn bộ dữ liệu Run ra JSON để chia sẻ cho team debug. |
-
-> [!TIP]
-> **Tính năng Báo cáo Kiểm toán (Audit)**
-> Mới được bổ sung gần đây! Bạn gõ `agenttrace audit <run_id>` để máy tự động đọc toàn bộ log, đếm số Token/Chi phí, soi lỗi bảo mật, và xuất ra một file `Markdown` báo cáo chuyên nghiệp.
+| `agenttrace serve` | `--port 8000` | Initializes the FastAPI Backend Server and Web Dashboard. |
+| `agenttrace top` | *(None)* | **[NEW]** Launches the `AgentTop` TUI (Terminal User Interface) to monitor runs in real-time, akin to the legendary `htop`. |
+| `agenttrace runs` | `--limit 50` | Renders a color-coded terminal table displaying the 50 most recent execution sessions. |
+| `agenttrace tree` | `<run_id>` | Prints the hierarchical execution tree in beautiful ASCII format (similar to the Linux `tree` command). |
+| `agenttrace export-dataset`| `--output data.jsonl` | **[NEW]** Aggregates successful traces and exports them into an OpenAI-compatible JSONL dataset for 1-click model fine-tuning! |
+| `agenttrace generate-tests`| `<run_id>` | **[NEW]** Analyzes tool inputs/outputs from a past run to autonomously generate a complete `pytest` suite mocking those identical interactions. |
+| `agenttrace audit` | `<run_id>` | Scans the trace for security anomalies, calculates total USD costs, and generates a professional Markdown Audit Report. |
 
 ---
 
-## 2. Web Dashboard (Giao diện đồ họa)
+## 2. The Interactive Web Dashboard
 
-Giao diện Web của AgentTrace là một Single Page Application (SPA) siêu nhẹ (Vanilla JS/HTML), không cần cài đặt Node.js hay npm.
+The AgentTrace Web Dashboard is a blisteringly fast Single Page Application (SPA) utilizing Vanilla JavaScript and HTML. It requires zero Node.js dependencies and zero configuration.
 
-### Giao Diện Hoạt Động Như Thế Nào?
+### Dashboard Core Components
 
-Khi bạn truy cập `http://localhost:8000`, Dashboard cung cấp 3 lớp hiển thị:
+When you navigate to `http://localhost:8000`, you are presented with three primary data panels:
 
-1. **Bảng Danh Sách (Recent Runs)**
-   - Cột ID thông minh: Chỉ hiển thị 8 ký tự đầu, nhưng nếu bạn rê chuột (Hover) hoặc ID chứa cụm `step`, nó sẽ mở rộng tự động qua CSS Tooltip.
-   - Trạng thái `completed` (Xanh), `failed` (Đỏ), `started` (Vàng).
+1. **The Session Ledger (Recent Runs)**
+   - Smart ID Rendering: Only the first 8 characters are displayed to save screen real estate. Hovering via CSS tooltips reveals the full UUID.
+   - Status Indicators: Visually coded as `completed` (Green), `failed` (Red), or `started` (Yellow).
 
-2. **Biểu Đồ Data Visualization (Mới cập nhật!)**
-   - AgentTrace đã tích hợp **Chart.js** vào HTML.
-   - Khi bạn bấm vào một Run, Dashboard sẽ tự động duyệt qua toàn bộ Event Metadata. Nếu nó thấy `prompt_tokens` và `completion_tokens`, nó lập tức vẽ lên màn hình một biểu đồ **Stacked Bar Chart**. Giúp sếp nhìn lướt qua là biết Tool nào đang ngốn tiền nhất!
+2. **The Analytics Engine (Chart.js Visualization)**
+   - AgentTrace has natively embedded **Chart.js**.
+   - Upon selecting a Run, the Dashboard iterates through the Event Metadata. When it detects `prompt_tokens` and `completion_tokens`, it instantaneously renders a gorgeous **Stacked Bar Chart**. 
+   - This provides executive-level visibility into exactly *which* tools and actions are consuming the most capital.
 
-3. **Cây Sự Kiện (Execution Tree)**
-   - Hiển thị theo cấp bậc (cha - con).
-   - Click vào từng Node để bung (Collapse/Expand) xem khối JSON nguyên gốc chứa Input/Output.
+3. **Dual-Mode Event Log (Tree View & Chat View)**
+   - **Tree View:** Displays a hierarchical, collapsible JSON tree. Ideal for deeply inspecting raw data payloads and system-level debugging.
+   - **Chat View [NEW]:** A consumer-friendly, messenger-style interface. It filters for `user` and `agent` roles, rendering them as blue and white chat bubbles. This allows non-technical stakeholders to easily read and comprehend the conversational flow of the Agent.
 
 ---
 
-[Tiếp theo: Chương 7 - Security & Redaction →](07-security-and-redaction.md)
+[Next: Chapter 7 - Enterprise Security & Data Redaction →](07-security-and-redaction.md)

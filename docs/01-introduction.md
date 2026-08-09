@@ -1,64 +1,65 @@
-# Chương 1: Giới thiệu & Triết lý Thiết kế của AgentTrace
+# Chapter 1: Introduction & Design Philosophy
 
-Chào mừng bạn bước vào thế giới giám sát AI thế hệ mới với **AgentTrace**. Tài liệu này sẽ không chỉ hướng dẫn bạn cách dùng, mà còn giúp bạn hiểu được "linh hồn" và lý do vì sao dự án này tồn tại.
+Welcome to the vanguard of Artificial Intelligence observability: **AgentTrace**. This document will not only serve as a technical guide but will also illuminate the "soul" of the project and the foundational reasons for its existence. 
 
 ---
 
-## 1. Nỗi đau (Pain Points) của kỷ nguyên LLM Agents
+## 1. The Pain Points of the LLM Agent Era
 
-Khi xây dựng các hệ thống AI Agents dựa trên LLM (Large Language Models), các kỹ sư phần mềm thường xuyên đối mặt với 3 bài toán sinh tử:
+When software engineers architect AI Agent systems relying on Large Language Models (LLMs), they inevitably collide with three existential challenges:
 
 > [!WARNING]
-> **1. Hộp Đen Suy Luận (The Reasoning Blackbox)**
-> Khi Agent nhận một lệnh phức tạp từ người dùng (vd: "Phân tích tài chính công ty X và gửi email cho Y"), nó sẽ thực hiện chuỗi hành động ReAct (Reasoning & Acting). Nếu kết quả cuối cùng bị sai, bạn không thể biết nó sai ở bước tìm kiếm web, bước đọc file, hay bước sinh văn bản.
+> **1. The Reasoning Blackbox**
+> When an Agent receives a complex objective from a user (e.g., "Analyze the financial data of Company X and draft an email to the CFO"), it initiates a complex ReAct (Reasoning & Acting) loop. If the final output is flawed, you are left completely blind. Was the web search query malformed? Did it misinterpret a file? Or was the final text generation hallucinated? Traditional logging cannot capture the non-linear thought processes of an LLM.
 
 > [!CAUTION]
-> **2. Rủi ro Bảo mật Chết người (Catastrophic Security Risks)**
-> Nếu cấp cho LLM quyền sử dụng công cụ dòng lệnh (Terminal) hoặc chạy code Python, một câu lệnh "ảo giác" (hallucination) như `rm -rf /` hoặc lệnh SQL `DROP TABLE` có thể quét sạch toàn bộ hệ thống của bạn trong tích tắc.
+> **2. Catastrophic Security Vulnerabilities**
+> Endowing an LLM with the capability to execute terminal commands or run Python scripts is akin to handing a loaded weapon to a toddler. A single hallucinated command such as `rm -rf /` or a rogue SQL `DROP TABLE` can permanently obliterate your production environment in milliseconds.
 
 > [!WARNING]
-> **3. Chi phí Chìm Khổng Lồ (Hidden Financial Costs)**
-> Việc Agent tự động lặp (loop) và thử sai có thể đốt cháy hàng triệu Token chỉ trong vài phút, biến hóa đơn OpenAI của bạn thành ác mộng.
+> **3. Massive Hidden Financial Costs**
+> Autonomous Agents have a tendency to enter infinite retry loops when they encounter errors. Without stringent oversight, an Agent can silently burn through millions of tokens in a matter of hours, transforming your monthly OpenAI API bill into an absolute nightmare.
 
 ---
 
-## 2. Giải pháp của AgentTrace
+## 2. The AgentTrace Solution
 
-AgentTrace không phải là một thư viện Logging thông thường (như Python `logging`). Nó là một **Hệ sinh thái Quản trị (Governance Ecosystem)**. 
+AgentTrace transcends the boundaries of standard logging libraries (such as Python's native `logging` module). It is an **Enterprise Governance Ecosystem** engineered specifically for the deterministic control of non-deterministic AI models.
 
-### Sơ đồ Tư duy Giải quyết vấn đề (Mindmap)
+### Problem-Solving Mindmap
 
 ```mermaid
 mindmap
   root((AgentTrace))
-    Quản lý Rủi ro
+    Risk Management
       Policy Engine
-      Chặn lệnh nguy hiểm Real-time
+      Real-time Command Blocking
       Security Redaction
-      Ẩn API Keys
-    Tối ưu Chi phí
+      API Key Masking
+    Cost Optimization
       Token Counters
       Cost Estimators
       Audit Reports
-    Khả năng Quan sát (Observability)
+    Deep Observability
       Event-based Tree
       Nested Tracking
-      Web Dashboard
-    Tích hợp Hệ sinh thái
+      Web & TUI Dashboard
+    Ecosystem Integration
       LlamaIndex & LangChain
       CrewAI & AutoGen
-      Antigravity Hooks
+      Claude Desktop MCP
 ```
 
-### Triết lý "Local-First" và "Privacy-Centric"
+### The "Local-First" & "Privacy-Centric" Philosophy
 
-Khác với LangSmith hay Phoenix, AgentTrace được thiết kế với triết lý **Local-First**. 
-- Toàn bộ dữ liệu logs, tokens, nội dung cuộc hội thoại của bạn với AI được lưu giữ **ngay trên máy tính của bạn** thông qua SQLite (hoặc Server Postgres nội bộ do bạn tự host).
-- Không có bất kỳ byte dữ liệu nào bị gửi lên một Cloud bên thứ ba (Third-party Cloud). Đảm bảo tuân thủ GDPR và các chính sách bảo mật khắt khe nhất của Enterprise.
+In stark contrast to SaaS-based tracing platforms like LangSmith or Phoenix, AgentTrace is strictly architected on a **Local-First** philosophy.
+- The entirety of your logs, token metrics, and sensitive conversational data with the AI remains securely confined **on your local machine** via SQLite (or an internal, self-hosted PostgreSQL server).
+- Absolutely zero bytes of your proprietary data are ever transmitted to a third-party cloud. This guarantees strict compliance with GDPR, HIPAA, and the most rigorous enterprise data security policies.
 
 > [!TIP]
-> Việc sử dụng kiến trúc Local-First giúp AgentTrace có tốc độ ghi log cực nhanh (độ trễ dưới 5ms), gần như không ảnh hưởng (zero overhead) đến hiệu năng của hệ thống AI chính.
+> **Zero Overhead Execution**
+> By utilizing a local-first architecture, AgentTrace achieves sub-millisecond logging latency. This ensures that integrating AgentTrace introduces virtually **zero overhead** to the performance of your primary AI application, even under immense asynchronous loads.
 
 ---
 
-[Tiếp theo: Chương 2 - Kiến trúc Hệ thống Phân tán →](02-architecture.md)
+[Next: Chapter 2 - Distributed Architecture & System Design →](02-architecture.md)

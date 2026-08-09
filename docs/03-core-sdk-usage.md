@@ -1,81 +1,83 @@
-# Chương 3: Hướng dẫn Lập trình Core SDK (Core SDK Usage)
+# Chapter 3: Core SDK Programming Guide
 
-Core SDK là trái tim của AgentTrace. Nếu bạn tự build một con AI Agent từ đầu bằng Python (không dùng LangChain hay LlamaIndex), đây là nơi bạn sẽ bắt đầu.
+The Core SDK is the beating heart of AgentTrace. If you are building a proprietary AI Agent entirely from scratch using standard Python (eschewing frameworks like LangChain or LlamaIndex), this is where your journey begins.
 
 ---
 
-## 1. Khởi tạo & Cấu hình Storage
+## 1. Initializing the Tracer & Storage Configuration
 
-Để bắt đầu, bạn cần khởi tạo `Tracer`. Bạn có thể chọn lưu bằng SQLite nội bộ hoặc ném thẳng lên PostgreSQL.
+Before capturing events, you must initialize the `Tracer` engine. AgentTrace is flexible, allowing you to persist data locally during development or stream it to an Enterprise PostgreSQL cluster in production.
 
 ```python
 from agenttrace.core import Tracer
 from agenttrace.storage.postgres import PostgresStorage
 
-# Option 1: SQLite (Mặc định)
+# Option 1: SQLite for rapid local development (Default)
 tracer_local = Tracer(db_path="local_logs.db")
 
-# Option 2: Enterprise Postgres
+# Option 2: Enterprise PostgreSQL for distributed production workloads
 pg_storage = PostgresStorage("postgresql://user:pass@localhost/agentdb")
 tracer_pg = Tracer(storage=pg_storage)
 ```
 
 ---
 
-## 2. Quản lý vòng đời (Lifecycle)
+## 2. Managing the Execution Lifecycle
 
-Mỗi lần user gửi một tin nhắn cho AI, bạn coi đó là một `Run`.
+In the AgentTrace ecosystem, a complete user interaction or specific task goal is encapsulated within a `Run`.
 
 ```python
-# 1. Bắt đầu Run
+# 1. Initialize a new Run
 run_id = tracer_local.start_run(
-    agent="MySuperAgent", 
-    task="Write a python snake game"
+    agent="ProprietaryFinancialAgent", 
+    task="Analyze Q3 SEC filings for Apple Inc."
 )
 
-# 2. Quan trọng: Gắn ID vào Context
-# Bước này giúp các hàm decorator phía sau tự động biết nó thuộc Run nào
+# 2. CRITICAL: Bind the Run ID to the execution context
+# This utilizes ContextVars to ensure thread-safe tracing. 
+# Subsequent decorators will automatically resolve this Run ID.
 tracer_local.set_current_run(run_id)
 
 try:
-    # ... Chạy logic của AI ở đây ...
+    # ... Execute your complex AI logic here ...
     pass
 except Exception as e:
-    # 3. Đánh dấu lỗi nếu có
+    # 3. Explicitly fail the run upon catastrophic errors
     tracer_local.end_run(run_id, status="failed")
     raise e
 finally:
-    # 4. Luôn phải kết thúc Run
+    # 4. Guarantee Run closure
     tracer_local.end_run(run_id, status="completed")
 ```
 
 ---
 
-## 3. Theo dõi hàm bằng Decorator (Đỉnh cao của sự lười biếng)
+## 3. The Power of Decorators: Tracing Tool Invocations
 
-Thay vì phải tự tạo Event rườm rà, AgentTrace tặng bạn 2 món bảo bối: `@trace_tool` (cho hàm thường) và `@async_trace_tool` (cho hàm async).
+Manually crafting JSON event payloads is tedious. AgentTrace provides two elegant decorators: `@trace_tool` (for synchronous execution) and `@async_trace_tool` (for high-performance asynchronous execution).
 
-### A. Hàm đồng bộ (Sync)
+### A. Synchronous Execution
 
 ```python
 from agenttrace.core import trace_tool
 
 @trace_tool
 def fetch_weather(city: str):
-    """Công cụ giúp LLM xem thời tiết."""
+    """A tool enabling the LLM to retrieve current meteorological data."""
     import requests
     res = requests.get(f"https://wttr.in/{city}?format=j1")
     return res.json()
 
-# Chỉ cần gọi hàm như bình thường, AgentTrace sẽ âm thầm ghi lại Input (city) 
-# và toàn bộ JSON Output vào Database!
-fetch_weather("Hanoi")
+# Simply invoke the function normally. 
+# AgentTrace silently intercepts the Input ("London") and the resulting JSON Output,
+# securely logging the transaction into your database.
+fetch_weather("London")
 ```
 
-### B. Hàm bất đồng bộ (Async) - Dành cho High Performance
+### B. Asynchronous Execution (High-Performance Applications)
 
 > [!TIP]
-> Việc gọi các hàm API bên thứ 3 (như OpenAI) trong ứng dụng production LUÔN LUÔN nên dùng Async để tránh nghẽn luồng.
+> When architecting production-grade applications, network bound operations (such as querying OpenAI APIs or scraping web pages) should **ALWAYS** utilize asynchronous paradigms (`asyncio`) to prevent thread-blocking bottlenecks.
 
 ```python
 import asyncio
@@ -85,22 +87,22 @@ async_tracer = AsyncTracer(db_path="async_logs.db")
 async_tracer.set_current_run(run_id)
 
 @async_trace_tool
-async def download_file_async(url: str):
-    await asyncio.sleep(1) # Giả lập I/O delay
-    return f"Downloaded 10MB from {url}"
+async def download_dataset_async(url: str):
+    await asyncio.sleep(1) # Simulating I/O latency
+    return f"Successfully downloaded 100MB chunk from {url}"
 
-# AgentTrace sẽ chờ (await) tool chạy xong mới ghi log
-await download_file_async("https://example.com/data.csv")
+# AgentTrace strictly awaits the resolution of the coroutine before writing the event.
+await download_dataset_async("https://enterprise-bucket.s3.amazonaws.com/data.csv")
 ```
 
 ---
 
-## 4. Xử lý lỗi (Exception Handling) trong Tool
+## 4. Unparalleled Exception Handling
 
-Điều tuyệt vời nhất của `@trace_tool` là nếu hàm của bạn văng ra lỗi (ví dụ: mất mạng, chia cho không), AgentTrace sẽ **tự động bẫy (catch)** lỗi đó, ghi vào Log với status là `FAILED` kèm theo `StackTrace` đầy đủ, rồi mới `raise` lại cho app của bạn.
+The true power of the `@trace_tool` architecture lies in its exception resilience. Should your tool encounter a fatal error (e.g., network timeout, zero division, database disconnect), AgentTrace automatically catches the exception, captures the entire Stack Trace, logs the event with a `FAILED` status, and gracefully re-raises the exception back to your application flow.
 
-Nhờ vậy, khi mở Dashboard lên, bạn sẽ thấy tool bị tô màu Đỏ và nguyên nhân chính xác vì sao Agent của bạn "chết lâm sàng".
+Consequently, when investigating issues within the Web Dashboard, failing tool calls are vividly highlighted in **Red**, providing immediate visibility into precisely *why* the Agent's reasoning loop collapsed.
 
 ---
 
-[Tiếp theo: Chương 4 - Tích hợp Adapters →](04-adapters-integration.md)
+[Next: Chapter 4 - Multi-Agent Frameworks & Adapters →](04-adapters-integration.md)

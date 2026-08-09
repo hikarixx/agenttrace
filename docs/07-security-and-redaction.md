@@ -1,70 +1,72 @@
-# Chương 7: Bảo Mật, Policy Engine & Data Redaction
+# Chapter 7: Enterprise Security, Policy Engine & Data Redaction
 
-Hệ thống AgentTrace không đơn thuần chỉ ghi lại cái Agent làm. Nó đóng vai trò làm **Người bảo vệ (Guardian)** cho toàn bộ hệ thống của bạn trước những rủi ro bảo mật tàn khốc nhất.
+AgentTrace is not merely a passive observer. It is deployed as an active **Guardian** for your infrastructure, engineered to withstand and neutralize the most catastrophic vulnerabilities inherent to autonomous LLM operations.
 
 ---
 
-## 1. Policy Engine (Lá Chắn Thời Gian Thực)
+## 1. The Real-Time Policy Engine
 
-LLM có thể sinh ra "Ảo giác" (Hallucination). Chuyện gì xảy ra nếu bạn cấp quyền cho nó chạy Terminal và nó bỗng dưng gõ `rm -rf /`?
+Large Language Models hallucinate. When an LLM is granted unrestricted access to a terminal or a database, a hallucinated command such as `rm -rf /` or `DROP TABLE users;` is not a theoretical risk—it is an impending disaster.
 
-### Cách Policy Engine Hoạt Động
-Policy Engine là một mô-đun chạy ở tầng **Pre-Tool** (Trước khi Tool chạy). Nó kiểm duyệt (Inspect) `tool_args`.
+### Operational Mechanics of the Policy Engine
+The Policy Engine operates strictly at the **Pre-Tool** phase. It intercepts and rigorously inspects `tool_args` before execution is permitted.
 
 ```mermaid
 graph LR
-    A[Agent Input] --> B(PolicyEngine)
-    B -->|Check Rules| C{Is Safe?}
-    C -- Yes --> D[Execute Tool]
-    C -- No --> E((DENY & BLOCK))
+    A[Agent Input Payload] --> B(AgentTrace Policy Engine)
+    B -->|Evaluate Rule Matrix| C{Is Command Safe?}
+    C -- Safe (Allow) --> D[Execute Tool on Host]
+    C -- Unsafe (Deny) --> E((DENY & INSTANT BLOCK))
     
     style E fill:#f00,stroke:#333,stroke-width:4px,color:#fff
 ```
 
-### Các Bộ Luật (Rules) Có Sẵn
+### Core Security Rulesets
 
 1. **`DangerousCommandRule`**:
-   - Dùng Regex tìm các mẫu phá hoại trong Command Line.
-   - Ví dụ cấm: `rm -rf`, `mkfs`, `reboot`, `shutdown`, `drop table`.
+   - Utilizes advanced Regular Expressions to identify destructive patterns within Bash/Powershell commands.
+   - Hard-blocked patterns include: `rm -rf`, `mkfs`, `reboot`, `shutdown`, `drop table`, `format`.
 2. **`RestrictDomainRule`**:
-   - Chỉ cho phép LLM gọi API (fetch) tới các Domain đã được cấp phép (Whitelist).
-   - Ngăn chặn Agent vô tình tải mã độc từ một máy chủ vô danh.
+   - Enforces a strict Whitelist for API calls. The Agent is only permitted to `fetch` data from pre-approved, safe domains.
+   - Mitigates the risk of an Agent inadvertently downloading malicious payloads or exfiltrating data to unknown servers.
 
 ---
 
-## 2. Security Redactor (Che Dấu Dữ Liệu Nhạy Cảm)
+## 2. The Zero-Trust Security Redactor
 
-Khi Agent gọi OpenAI, trong Header của Request luôn có một chuỗi `Bearer sk-xxxxxxxxxx`. Nếu bạn lưu nó vào DB `agenttrace.db`, và người khác (hoặc Hacker) lấy được DB đó, công ty bạn sẽ thiệt hại nặng nề.
+When your Agent authenticates with OpenAI or AWS, the HTTP headers invariably contain highly sensitive tokens (e.g., `Bearer sk-xxxxxxxxxx`). If this raw payload is written to `agenttrace.db`, and that database is later compromised or inadvertently shared, your organization faces a critical security breach.
 
 > [!CAUTION]
-> **Zero Trust Logging**
-> AgentTrace mặc định coi MỌI luồng dữ liệu (Input, Output, Error Traceback) đều có thể chứa thông tin mật.
+> **Zero Trust Logging Architecture**
+> AgentTrace operates under the assumption that EVERY stream of data (Input, Output, Error Tracebacks) is potentially contaminated with classified information.
 
-### Thuật toán Lọc (Redaction Algorithm)
+### The Redaction Algorithm
 
-`SecurityRedactor` nằm ở phần lõi (`agenttrace.security`). Thuật toán của nó:
-1. Nạp sẵn 50+ Regex Pattern đại diện cho API Key của OpenAI, AWS, Anthropic, GCP, Stripe...
-2. Chặn toàn bộ `Event.metadata` trước khi Serialize thành chuỗi JSON để đưa xuống Storage.
-3. Duyệt đệ quy (Recursive Traverse) qua toàn bộ cây Dictionary.
-4. Phát hiện chuỗi khớp -> Ghi đè bằng `[REDACTED]`.
+The `SecurityRedactor` resides at the deepest core of the framework (`agenttrace.security`). Its algorithm executes as follows:
+1. Initializes a memory bank containing 50+ pre-compiled Regex Patterns targeting API Keys for OpenAI, AWS, Anthropic, GCP, Stripe, and more.
+2. Intercepts the entirety of `Event.metadata` just prior to JSON serialization.
+3. Performs a Recursive Traversal across the entire Dictionary tree.
+4. Upon pattern matching -> Overwrites the string with `[REDACTED]`.
 
-**Ví dụ Code (Trước / Sau):**
+**Code Visualization (Before & After):**
 
 ```diff
-  # Before Redaction (Bị Lộ)
+  # Before Redaction (Critically Vulnerable)
   {
 -     "authorization": "Bearer sk-proj-ABCD12345XYZ",
-      "user_email": "ceo@company.com"
+      "user_email": "ceo@enterprise.com",
+      "db_password": "SuperSecretPassword123"
   }
 
-  # After Redaction (An toàn)
+  # After Redaction (Fully Sanitized & Secure)
   {
 +     "authorization": "[REDACTED]",
-      "user_email": "ceo@company.com"
+      "user_email": "ceo@enterprise.com",
+      "db_password": "[REDACTED]"
   }
 ```
 
-Bạn có thể tự định nghĩa thêm Regex độc quyền của công ty mình bằng cách gọi `redactor.add_pattern(r"MY_COMPANY_SECRET_[a-zA-Z0-9]+")`.
+Enterprise teams can effortlessly append proprietary, internal Regex patterns to the engine via `redactor.add_pattern(r"MY_COMPANY_SECRET_[a-zA-Z0-9]+")`.
 
 ---
-*Cảm ơn bạn đã đọc hết cẩm nang AgentTrace. Chúc bạn xây dựng được những Agent an toàn và siêu việt nhất!*
+*Thank you for exploring the AgentTrace Documentation. We wish you success in architecting the safest and most advanced Autonomous Agents on the planet.*

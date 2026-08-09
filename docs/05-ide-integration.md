@@ -1,14 +1,14 @@
-# Chương 5: Tích hợp IDE (Antigravity Hooks)
+# Chapter 5: IDE Integration & Lifecycle Hooks (Antigravity)
 
-Phần này hướng dẫn bạn cách biến **AgentTrace** thành một "lớp vỏ bọc" (wrapper) giám sát cho **Antigravity IDE** - công cụ AI Coding mạnh mẽ nhất hiện nay.
+This chapter instructs you on transforming **AgentTrace** into an impenetrable governance wrapper for **Antigravity IDE** — arguably the most powerful autonomous AI coding environment currently available.
 
-Bằng cách sử dụng cơ chế Lifecycle Hooks của Antigravity, AgentTrace có thể bắt được toàn bộ lịch sử sử dụng Tool của Agent mà không cần can thiệp trực tiếp vào mã nguồn của bản thân IDE.
+By exploiting Antigravity's Lifecycle Hook mechanism, AgentTrace successfully intercepts the entirety of an Agent's tool invocation history without requiring any direct modifications to the IDE's core source code.
 
 ---
 
-## 1. Cơ chế hoạt động (How it works?)
+## 1. Operational Mechanics
 
-Khi Agent trong Antigravity quyết định gọi một tool (ví dụ: sửa file, chạy bash), luồng sự kiện xảy ra như sau:
+When an autonomous Agent operating within Antigravity decides to execute a tool (e.g., executing a bash script, modifying a file), the ensuing event cascade is as follows:
 
 ```mermaid
 sequenceDiagram
@@ -17,36 +17,36 @@ sequenceDiagram
     participant Policy as Policy Engine
     participant Server as AgentTrace Server
     
-    IDE->>Hook: [PreToolUse] JSON (Tool Input)
-    Hook->>Policy: Kiểm tra an toàn (Check Rules)
+    IDE->>Hook: Emit [PreToolUse] JSON (Tool Arguments)
+    Hook->>Policy: Perform Real-time Security Validation
     
-    alt Nếu vi phạm Rule (VD: rm -rf)
-        Policy-->>Hook: Vi phạm (Deny)
+    alt Policy Violation Detected (e.g., rm -rf)
+        Policy-->>Hook: Deny Execution
         Hook-->>IDE: STDOUT: {"decision": "deny"}
-        IDE-XIDE: Dừng gọi Tool!
-    else Nếu An toàn
-        Policy-->>Hook: An toàn (Allow)
+        IDE-XIDE: Tool Execution Terminated Immediately!
+    else Secure Command
+        Policy-->>Hook: Allow Execution
         Hook->>Server: POST /api/events (Status: Started)
         Hook-->>IDE: STDOUT: {"decision": "allow"}
-        IDE->>IDE: Thực thi Tool thực tế
+        IDE->>IDE: Actual Tool Execution Commences
     end
     
-    IDE->>Hook: [PostToolUse] JSON (Tool Output)
+    IDE->>Hook: Emit [PostToolUse] JSON (Tool Output)
     Hook->>Server: POST /api/events (Status: Completed/Failed)
 ```
 
 ---
 
-## 2. Cấu hình Từng Bước (Step-by-Step)
+## 2. Step-by-Step Configuration Guide
 
-### Bước 1: Khởi động Backend Server
-Bạn phải chạy AgentTrace Server ở background để nó hứng dữ liệu từ IDE bắn qua:
+### Step 1: Initialize the Backend Server
+You must initiate the AgentTrace API Server as a background process to ingest the HTTP data streams transmitted by the IDE:
 ```bash
 agenttrace serve --port 8000
 ```
 
-### Bước 2: Tạo file `hooks.json`
-Vào thư mục gốc (root) của dự án mà bạn đang code bằng Antigravity, tạo folder `.agents/` và file `hooks.json`.
+### Step 2: Establish the `hooks.json` Configuration
+Navigate to the root directory of your Antigravity project. Create the `.agents/` directory (if it does not exist) and generate the `hooks.json` file.
 
 #### [NEW] [`.agents/hooks.json`](file:///d:/1 Số Code/AgentTrace/.agents/hooks.json)
 ```json
@@ -79,13 +79,13 @@ Vào thư mục gốc (root) của dự án mà bạn đang code bằng Antigrav
 ```
 
 > [!WARNING] 
-> **Thư mục làm việc (Working Directory) Cực kỳ Quan Trọng:**
-> Antigravity IDE lấy thư mục chứa `hooks.json` (tức là `.agents/`) làm thư mục làm việc hiện tại (`cwd`) khi thực thi lệnh command. 
-> Do đó, đường dẫn phải viết là `py scripts/agenttrace_hook.py` (tương đương với `.agents/scripts/agenttrace_hook.py`), **tuyệt đối không** viết là `py .agents/scripts/...` vì sẽ sinh lỗi *File Not Found*.
+> **CRITICAL Directory Warning:**
+> The Antigravity IDE designates the directory containing `hooks.json` (specifically `.agents/`) as the Current Working Directory (`cwd`) when executing commands. 
+> Therefore, your command path must be explicitly written as `py scripts/agenttrace_hook.py`. Attempting to write `py .agents/scripts/...` will inevitably trigger a *File Not Found* error.
 
-### Bước 3: Viết Script Xử Lý (The Hook Logic)
+### Step 3: Architecting the Hook Logic (The Bridge)
 
-Kịch bản Python này là "Cầu nối" (Bridge). Nó đọc STDIN, gửi dữ liệu lên cổng 8000, và trả lời IDE qua STDOUT. Đồng thời, nó nhúng **Policy Engine** vào để làm chốt chặn bảo vệ.
+This Python script operates as the critical "Bridge". It parses `STDIN`, transmits the sanitized payloads to HTTP port 8000, and replies to the IDE via `STDOUT`. Most importantly, it embeds the **Policy Engine** as a strict, real-time security checkpoint.
 
 #### [NEW] [`.agents/scripts/agenttrace_hook.py`](file:///d:/1 Số Code/AgentTrace/.agents/scripts/agenttrace_hook.py)
 
@@ -94,8 +94,8 @@ Kịch bản Python này là "Cầu nối" (Bridge). Nó đọc STDIN, gửi d�
   import json
   import uuid
   import urllib.request
-+ # Import hệ thống bảo mật của AgentTrace
-+ sys.path.insert(0, ".") # Mẹo: Thêm root để import được package agenttrace
++ # Import the AgentTrace Security Ecosystem
++ sys.path.insert(0, ".") # Pro-tip: Ensure the agenttrace package is resolvable
 + from agenttrace.policy import PolicyEngine
 
   def main():
@@ -106,9 +106,9 @@ Kịch bản Python này là "Cầu nối" (Bridge). Nó đọc STDIN, gửi d�
       except:
           context = {}
 
-      # MẸO QUAN TRỌNG: Tách Từng Bước (Step Granularity)
-      # Để mỗi lần gọi Tool hiển thị thành một dòng độc lập trên Dashboard,
-      # Chúng ta phải nối ConversationID với StepIdx để tạo thành một Run_ID mới.
+      # ENTERPRISE PRO-TIP: Assuring Step Granularity
+      # To ensure every single tool execution is rendered as an independent node
+      # on the Dashboard Tree, we concatenate ConversationID with StepIdx.
       conv_id = context.get("conversationId", str(uuid.uuid4()))
       step_idx = context.get("stepIdx", "0")
       run_id = f"{conv_id[:8]}-step-{step_idx}"
@@ -118,19 +118,19 @@ Kịch bản Python này là "Cầu nối" (Bridge). Nó đọc STDIN, gửi d�
       tool_args = tool_call.get("args", {})
 
       if event_phase == "pre_tool":
-+         # KÍCH HOẠT POLICY ENGINE: Kiểm tra lệnh nguy hiểm
++         # POLICY ENGINE ACTIVATION: Scanning for Catastrophic Commands
 +         engine = PolicyEngine()
 +         is_allowed, reason = engine.check_tool(tool_name, tool_args)
 +         
 +         if not is_allowed:
-+             # Trả về DENY cho IDE, chặn ngay lập tức!
++             # Emit DENY signal to IDE, blocking execution instantaneously!
 +             print(json.dumps({"decision": "deny", "reason": reason}))
 +             return
 
-          # ... Gửi dữ liệu lên Server HTTP ...
+          # ... Transmit data to HTTP Server ...
           print(json.dumps({"decision": "allow"}))
       else:
-          # ... Gửi dữ liệu cập nhật status Post-Tool ...
+          # ... Transmit Post-Tool completion data ...
           print(json.dumps({}))
 
   if __name__ == "__main__":
@@ -139,4 +139,4 @@ Kịch bản Python này là "Cầu nối" (Bridge). Nó đọc STDIN, gửi d�
 
 ---
 
-[Tiếp theo: Chương 6 - CLI và Dashboard →](06-cli-and-dashboard.md)
+[Next: Chapter 6 - CLI Command Reference & Dashboard Analytics →](06-cli-and-dashboard.md)

@@ -118,10 +118,8 @@ def delete(run_id: str):
             return
     storage.delete_run(run_id)
     console.print(f"Run {run_id} deleted.")
-
 @app.command()
 def audit(run_id: str, format: str = "md", output: str = None):
-    """Trích xuất báo cáo kiểm toán (Audit Report) cho một Run"""
     from .audit import generate_audit_report
     run = storage.get_run(run_id)
     if not run:
@@ -133,28 +131,40 @@ def audit(run_id: str, format: str = "md", output: str = None):
             console.print(f"[red]Run {run_id} not found[/red]")
             return
     generate_audit_report(run_id, format, output)
-
 @app.command(
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
 )
 def mcp_proxy(ctx: typer.Context):
-    """
-    Chạy MCP Proxy cho Claude Desktop.
-    Sử dụng: agenttrace mcp-proxy -- python server.py
-    """
     if not ctx.args:
         console.print("[red]Lỗi: Cần cung cấp lệnh chạy MCP Server. Ví dụ: agenttrace mcp-proxy -- npx -y @modelcontextprotocol/server-everything[/red]")
         return
-        
-    # Loại bỏ dấu '--' nếu có
     command = ctx.args
     if command[0] == "--":
         command = command[1:]
-        
     from .adapters.mcp_proxy import MCPProxy
     proxy = MCPProxy(command)
     proxy.start()
-
+@app.command()
+def top():
+    from .tui import start_tui
+    start_tui()
+@app.command()
+def export_dataset(output: str = "dataset.jsonl"):
+    from .export_dataset import export_openai_dataset
+    export_openai_dataset(output)
+@app.command()
+def generate_tests(run_id: str, output: str = "test_agent.py"):
+    from .generate_tests import generate_pytest_file
+    run = storage.get_run(run_id)
+    if not run:
+        runs = storage.list_runs()
+        matches = [r for r in runs if r.id.startswith(run_id)]
+        if len(matches) == 1:
+            run_id = matches[0].id
+        else:
+            console.print(f"[red]Run {run_id} not found[/red]")
+            return
+    generate_pytest_file(run_id, output)
 @app.command()
 def serve(host: str = "127.0.0.1", port: int = 8000):
     console.print(f"Starting AgentTrace Dashboard on http://{host}:{port}")

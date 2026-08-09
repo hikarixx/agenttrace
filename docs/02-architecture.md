@@ -1,25 +1,25 @@
-# Chương 2: Kiến trúc Hệ thống (Architecture)
+# Chapter 2: Distributed Architecture & System Design
 
-Đằng sau sự linh hoạt của AgentTrace là một kiến trúc nguyên khối được thiết kế để dễ dàng mở rộng (Extensible Monolith). Bất kỳ thành phần nào (Storage, Policy, Adapter) đều có thể được thay thế hoặc nâng cấp độc lập.
+Beneath the sleek interface and seamless integrations of AgentTrace lies a robust, **Extensible Monolith** architecture. Every core component—from the Storage backend to the Policy Engine and the Adapters—is heavily decoupled, allowing for independent scaling, hot-swapping, and enterprise-grade customization.
 
 ---
 
-## 1. Sơ đồ Cấu trúc Tổng thể (High-level Architecture)
+## 1. High-Level Architecture Flow
 
-Hãy xem sơ đồ Mermaid dưới đây để hiểu cách dữ liệu chảy qua hệ thống:
+Examine the Mermaid diagram below to visualize the lifecycle of a data packet as it travels from the AI Application through the Security Layer and finally rests in the Storage Layer:
 
 ```mermaid
 graph TD
     subgraph Client [AI Application / IDE]
         Agent[LLM Agent / User]
-        Adapters[Adapters: LangChain, CrewAI, Hook...]
+        Adapters[Framework Adapters: LangChain, CrewAI, MCP]
         SDK[AgentTrace Core SDK]
         
-        Agent -->|Calls Tool / Generates| Adapters
+        Agent -->|Calls Tool / Generates Text| Adapters
         Adapters -->|Intercepts & Wraps| SDK
     end
 
-    subgraph Security [Security Layer]
+    subgraph Defense [Security & Defense Layer]
         Policy[Policy Engine]
         Redactor[Security Redactor]
         
@@ -29,11 +29,11 @@ graph TD
         Redactor -->|Masks Secrets| Storage
     end
 
-    subgraph Server [Backend & Storage]
-        Storage[(Storage: SQLite/Postgres)]
+    subgraph Server [Backend & Analytics]
+        Storage[(Storage: SQLite / Postgres)]
         FastAPI[REST API Server]
         Dashboard[Web Dashboard HTML/JS]
-        CLI[CLI Commands]
+        CLI[Typer CLI / TUI Engine]
         
         Storage <--> FastAPI
         FastAPI <--> Dashboard
@@ -43,37 +43,38 @@ graph TD
 
 ---
 
-## 2. Giải phẫu các Component Lõi
+## 2. Anatomy of the Core Components
 
-### A. Tầng Thu thập (Data Ingestion Layer)
-- **`agenttrace.core` (Sync/Async SDK)**: Nơi chứa class `Tracer` và `AsyncTracer`. Chịu trách nhiệm cấp phát ID (UUID4), duy trì ngữ cảnh (TraceContext) qua `ContextVar` (giúp theo dõi an toàn trong môi trường đa luồng - Multithreading/Async).
-- **`agenttrace.adapters`**: Các lớp "Bọc" (Wrapper/Monkey-patch). Nhiệm vụ của Adapter là chèn mã độc (theo nghĩa tốt) vào các thư viện bên thứ 3 (như `crew.kickoff` hoặc `openai.chat.completions`) để cướp luồng thực thi và gửi dữ liệu về SDK mà không bắt Developer phải sửa source code.
+### A. The Data Ingestion Layer
+- **`agenttrace.core` (Sync/Async SDK):** The absolute foundation of the system. Contains the `Tracer` and `AsyncTracer` classes. It is responsible for deterministic ID generation (UUID4) and maintaining the thread-safe `TraceContext` across asynchronous boundaries using Python's native `ContextVar`. This ensures that even in environments handling hundreds of concurrent LLM requests, events never bleed into the wrong trace.
+- **`agenttrace.adapters`:** The "Wrappers" or "Monkey-patchers". The sole responsibility of an Adapter is to seamlessly inject tracing logic into third-party libraries (e.g., `crew.kickoff()` or `openai.chat.completions`) without requiring the end-developer to modify their business logic.
 
-### B. Tầng Bảo mật (Defense Layer)
-- **`agenttrace.policy` (Policy Engine)**: Trước khi Tool chạy, Engine sẽ quyét qua tập các Rules (Ví dụ: `DangerousCommandRule`). Nếu phát hiện vi phạm, nó can thiệp trực tiếp để văng ra Exception hoặc thông báo tới IDE Hook chặn tiến trình.
-- **`agenttrace.security` (Redaction)**: Sau khi Tool chạy xong (dù thành công hay thất bại), kết quả trả về thường chứa dữ liệu nhạy cảm. Redactor dùng Regex quét và thay thế `sk-1234...` thành `[REDACTED]`.
+### B. The Security & Defense Layer
+- **`agenttrace.policy` (Policy Engine):** Operating at the *Pre-Tool* phase. Before a tool is allowed to execute on the host machine, the Engine scans the tool's arguments against a strict rule matrix (e.g., `DangerousCommandRule`). If a violation is detected, it ruthlessly severs the execution flow, throwing an Exception or instructing the IDE Hook to block the process.
+- **`agenttrace.security` (Redaction):** Operating at the *Post-Tool* phase. Regardless of whether a tool succeeded or failed, the output often contains highly sensitive information (e.g., `Authorization: Bearer sk-...`). The Redactor utilizes pre-compiled regex arrays to scrub payloads, replacing secrets with `[REDACTED]` in milliseconds.
 
 > [!NOTE]
-> Quá trình Redaction được tối ưu hóa cực đỉnh bằng cách biên dịch (compile) trước tập lệnh Regex, giúp nó có thể quét hàng triệu ký tự output chỉ trong vài mili-giây.
+> **Performance Optimization**
+> The Security Redactor achieves its blistering speed by leveraging pre-compiled regular expressions (`re.compile`) loaded into memory at startup. This allows it to recursively traverse and sanitize millions of characters in heavily nested JSON objects with virtually zero latency.
 
-### C. Tầng Lưu trữ & Hiển thị (Storage & Presentation Layer)
-- **`agenttrace.storage`**: Định nghĩa Abstract Base Class (ABC). Bạn có thể tự viết thêm `MongoStorage` hoặc `MySQLStorage` chỉ bằng cách kế thừa và implement 5 hàm (create_run, update_run, get, list...). Hiện tại hỗ trợ sẵn `LocalStorage` (SQLite) và `PostgresStorage`.
-- **`agenttrace.server.api`**: Web Server viết bằng FastAPI, cung cấp API HTTP chuẩn mực. Rất hữu ích khi IDE (như Antigravity) không chạy cùng chung tiến trình (process) với AgentTrace mà phải giao tiếp qua cổng 8000.
+### C. The Storage & Analytics Layer
+- **`agenttrace.storage`:** Defined via Abstract Base Classes (ABC). This allows enterprise teams to inject custom backends (like MongoDB or Redis) simply by inheriting the base class and implementing 5 core methods. Out of the box, AgentTrace ships with lightning-fast `LocalStorage` (SQLite) and highly scalable `PostgresStorage`.
+- **`agenttrace.server.api`:** A high-performance REST API built on top of FastAPI. This is critical for scenarios where the IDE (like Antigravity or Claude Desktop) runs in an entirely separate OS process from the AgentTrace tracking server and must communicate over HTTP port 8000.
 
 ---
 
-## 3. Mô Hình Dữ Liệu Lõi (Core Data Model)
+## 3. The Core Data Model
 
-Hệ thống xoay quanh 2 Object chính: **Run** và **Event**.
+The entire ecosystem revolves around two fundamental, relational objects: the **Run** and the **Event**.
 
-| Trường (Field) | Kiểu dữ liệu (Type) | Ý nghĩa (Description) |
+| Field Name | Data Type | Description |
 | :--- | :--- | :--- |
-| **Run.id** | `UUID (String)` | ID duy nhất cho một phiên làm việc (Conversation/Task). |
-| **Run.metadata** | `JSONB / Dict` | Chứa các thông tin cấu hình mở rộng (ví dụ LLM Model name). |
-| **Event.run_id** | `UUID` | Khóa ngoại chỉ định Event này thuộc về Run nào. |
-| **Event.parent_id** | `UUID` | Giúp tạo ra cấu trúc cây (Tree) - Ví dụ Event "Sinh Code" là con của Event "Giải quyết Bug". |
-| **Event.metadata** | `JSONB / Dict` | Nơi lưu Input, Output, Lỗi, và đặc biệt là **Metrics** (Token đếm được). |
+| **Run.id** | `UUID (String)` | A globally unique identifier representing a single working session, conversation, or task. |
+| **Run.metadata** | `JSONB / Dict` | A flexible schema for storing extended configuration (e.g., LLM Model Name, Temperature, Environment variables). |
+| **Event.run_id** | `UUID` | The foreign key linking this event back to its parent Run. |
+| **Event.parent_id** | `UUID` | Enables the creation of deeply nested Execution Trees (e.g., a "Code Generation" event nested under a "Bug Fixing" parent event). |
+| **Event.metadata** | `JSONB / Dict` | The primary payload store. Holds the Input, Output, Error Tracebacks, and crucially, the **Metrics** (Prompt/Completion Tokens and USD Cost). |
 
 ---
 
-[Tiếp theo: Chương 3 - Hướng dẫn Lập trình Core SDK →](03-core-sdk-usage.md)
+[Next: Chapter 3 - Core SDK Programming Guide →](03-core-sdk-usage.md)
